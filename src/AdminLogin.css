@@ -1,0 +1,82 @@
+/* Page background */
+body { background-color: #004999; }
+
+.admin-login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+/* Card */
+.admin-card {
+  width: 100%;
+  max-width: 520px;
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  padding: 32px 36px 28px;
+}
+
+.admin-title {
+  margin: 4px 0 20px;
+  font-size: 24px;
+  color: #0f172a;
+  text-align: center;
+  font-weight: 600;
+}
+
+.admin-form { display: flex; flex-direction: column; gap: 12px; }
+
+.admin-label { display: block; font-size: 14px; color: #0f172a; margin: 6px 0 6px; }
+
+/* Input */
+.admin-input-wrap {
+  position: relative;
+  margin-bottom: 8px;
+}
+.admin-input-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: #64748b;
+  pointer-events: none;
+}
+.admin-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px 0 44px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #e2e8f0;
+  color: #0f172a;
+  outline: none;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+  box-sizing: border-box;
+}
+.admin-input:focus {
+  border-color: #5b8cff;
+  background: #eef2ff;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.25), inset 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* Remember */
+.admin-remember { margin: 4px 0 6px; }
+.admin-checkbox { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; color: #0f172a; }
+.admin-checkbox input { width: 16px; height: 16px; }
+
+/* Button */
+.admin-button {
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 600;
+  background: linear-gradient(180deg, #3b6cff 0%, #335eea 100%);
+  cursor: pointer;
+}
+.admin-button:hover { filter: brightness(1.02); }
+.admin-button:active { transform: translateY(1px); }
