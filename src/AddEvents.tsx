@@ -12,7 +12,7 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 
 interface EventItem {
   id: string;
@@ -45,11 +45,29 @@ const AddEvents: React.FC = () => {
     setPreview(URL.createObjectURL(file));
   };
 
-  const uploadImage = async (file: File) => {
-    const filename = `events/${Date.now()}-${file.name}`;
-    const storageRef = ref(storage, filename);
-    await uploadBytes(storageRef, file);
-    return getDownloadURL(storageRef);
+  // FIXED IMAGE UPLOAD (NO STUCK PROMISE)
+  const uploadImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const filename = `events/${Date.now()}-${file.name}`;
+      const storageRef = ref(storage, filename);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on(
+        "state_changed",
+        () => {},
+        (error) => {
+          reject(error);
+        },
+        async () => {
+          try {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve(url);
+          } catch (err) {
+            reject(err);
+          }
+        },
+      );
+    });
   };
 
   const formatDate = (value: string) => {
@@ -62,12 +80,10 @@ const AddEvents: React.FC = () => {
   };
 
   const formatTime = (value: string) => {
-    const t = new Date(`1970-01-01T${value}`);
-    let hours = t.getHours();
-    const minutes = t.getMinutes().toString().padStart(2, "0");
-    const ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12 || 12;
-    return `${hours}:${minutes} ${ampm}`;
+    const [h, m] = value.split(":").map(Number);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const hour = h % 12 || 12;
+    return `${hour}:${m.toString().padStart(2, "0")} ${ampm}`;
   };
 
   // Fetch events
@@ -88,26 +104,21 @@ const AddEvents: React.FC = () => {
     fetchEvents();
   }, []);
 
-  // Add event
+  // Add event (FIXED)
   const onSubmit: React.FormEventHandler = async (e) => {
     e.preventDefault();
+    if (saving) return;
+
     if (!title || !description || !date || !time || !imageFile) {
       alert("Please fill in all fields.");
       return;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const selectedDate = new Date(date);
-    selectedDate.setHours(0, 0, 0, 0);
-    if (selectedDate < today) {
-      alert("You cannot select a past date.");
-      return;
-    }
-
     setSaving(true);
+
     try {
       const imageUrl = await uploadImage(imageFile);
+
       const docRef = await addDoc(collection(db, "Events"), {
         title,
         description,
@@ -138,7 +149,7 @@ const AddEvents: React.FC = () => {
 
       alert("Event created successfully!");
     } catch (err) {
-      console.error(err);
+      console.error("ADD EVENT ERROR:", err);
       alert("Failed to create event.");
     } finally {
       setSaving(false);
@@ -158,7 +169,7 @@ const AddEvents: React.FC = () => {
     }
   };
 
-  // Save edit from modal
+  // Save edit
   const handleSaveEdit = async () => {
     if (!editEvent) return;
     try {
@@ -170,7 +181,7 @@ const AddEvents: React.FC = () => {
         time: editEvent.time,
       });
       setEvents((prev) =>
-        prev.map((e) => (e.id === editEvent.id ? editEvent : e))
+        prev.map((e) => (e.id === editEvent.id ? editEvent : e)),
       );
       setEditEvent(null);
     } catch (err) {
@@ -180,7 +191,7 @@ const AddEvents: React.FC = () => {
   };
 
   const filteredEvents = events.filter((e) =>
-    e.title.toLowerCase().includes(query.toLowerCase())
+    e.title.toLowerCase().includes(query.toLowerCase()),
   );
 
   return (
@@ -271,7 +282,7 @@ const AddEvents: React.FC = () => {
         This added Event will be reviewed by the Super Admin before activation.
       </p>
 
-      {/* Scrollable Event Table */}
+      {/* Event Table */}
       <div
         className="ad-table-card"
         style={{ marginTop: 30, maxHeight: 400, overflowY: "auto" }}
@@ -281,7 +292,7 @@ const AddEvents: React.FC = () => {
         </header>
 
         <div className="ad-search">
-          <span className="ad-search-ico" aria-hidden>
+          <span className="ad-search-ico">
             <IconSearch size={16} />
           </span>
           <input
@@ -312,15 +323,12 @@ const AddEvents: React.FC = () => {
                 <td className="ad-actions">
                   <button
                     className="ad-icon-btn edit"
-                    title="Edit"
                     onClick={() => setEditEvent(e)}
                   >
                     <IconEdit size={16} />
                   </button>
                   <button
                     className="ad-icon-btn danger"
-                    title="Delete"
-                    type="button"
                     onClick={() => setDeleteConfirm(e)}
                   >
                     <IconTrash size={16} />
@@ -387,7 +395,7 @@ const AddEvents: React.FC = () => {
         </div>
       )}
 
-      {/* Delete confirmation modal */}
+      {/* Delete modal */}
       {deleteConfirm && (
         <div className="ad-modal-overlay">
           <div className="ad-modal-content">
