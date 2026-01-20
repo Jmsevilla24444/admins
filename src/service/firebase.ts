@@ -9,7 +9,7 @@ export const firebaseConfig = {
   authDomain: "pmftci360-ff82a.firebaseapp.com",
   projectId: "pmftci360-ff82a",
 
-  // 🔴 FIXED: correct storage bucket
+  // storage bucket
   storageBucket: "pmftci360-ff82a.firebasestorage.app",
 
   messagingSenderId: "286700206631",
@@ -24,7 +24,7 @@ export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// 🔴 FIXED: explicitly bind correct bucket
+// explicitly bind correct bucket
 export const storage = getStorage(
   app,
   "gs://pmftci360-ff82a.firebasestorage.app",

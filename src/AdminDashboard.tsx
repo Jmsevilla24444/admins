@@ -11,16 +11,19 @@ import {
   IconCalendar,
   IconReport,
   IconGlobe,
+  IconNotification,
 } from "./icons";
+
 import { db } from "./service/firebase";
-import { collection, getDocs } from "firebase/firestore";
-import { IconNotification } from "./icons";
+import { collection, onSnapshot, collectionGroup } from "firebase/firestore";
 
 const ADMIN_SESSION_KEY = "admin_auth";
 
+// Sidebar
 const Sidebar: React.FC<{ route: string }> = ({ route }) => {
   const isActive = (r: string) =>
     route === r ? "ad-nav-item active" : "ad-nav-item";
+
   return (
     <aside className="ad-sidebar">
       <div className="ad-brand">
@@ -32,6 +35,7 @@ const Sidebar: React.FC<{ route: string }> = ({ route }) => {
           <span className="ad-brand-bottom">360</span>
         </div>
       </div>
+
       <nav className="ad-nav">
         <a className={isActive("#/dashboard")} href="#/dashboard">
           <span className="ad-nav-ico">
@@ -39,24 +43,28 @@ const Sidebar: React.FC<{ route: string }> = ({ route }) => {
           </span>
           <span>Dashboard</span>
         </a>
+
         <a className={isActive("#/facilities")} href="#/facilities">
           <span className="ad-nav-ico">
             <IconBuilding size={20} stroke="#eaf2ff" />
           </span>
           <span>Facilities</span>
         </a>
+
         <a className={isActive("#/add-events")} href="#/add-events">
           <span className="ad-nav-ico">
             <IconCalendar size={20} stroke="#eaf2ff" />
           </span>
           <span>Add Events</span>
         </a>
+
         <a className={isActive("#/add-notification")} href="#/add-notification">
           <span className="ad-nav-ico">
             <IconNotification size={20} stroke="#eaf2ff" />
           </span>
           <span>Add Notification</span>
         </a>
+
         <a className={isActive("#/report")} href="#/report">
           <span className="ad-nav-ico">
             <IconReport size={20} stroke="#eaf2ff" />
@@ -68,11 +76,12 @@ const Sidebar: React.FC<{ route: string }> = ({ route }) => {
   );
 };
 
+// Stat Card
 const Stat: React.FC<{
   title: string;
-  value: string;
+  value: number;
   icon: React.ReactNode;
-  variant?: "indigo" | "blue" | "amber";
+  variant?: "indigo" | "blue" | "amber" | "emerald";
 }> = ({ title, value, icon, variant = "indigo" }) => (
   <div className={`ad-stat ${variant}`}>
     <div className={`ad-stat-ico ${variant}`} aria-hidden>
@@ -85,6 +94,7 @@ const Stat: React.FC<{
   </div>
 );
 
+// Quick Action Card
 const QuickAction: React.FC<{
   title: string;
   desc: string;
@@ -108,6 +118,7 @@ const QuickAction: React.FC<{
   </button>
 );
 
+// Donut Chart
 const DonutChart: React.FC<{
   data: number[];
   colors: string[];
@@ -172,6 +183,7 @@ const DonutChart: React.FC<{
   );
 };
 
+// Header
 const HeaderBar: React.FC<{ title: string; onLogout: () => void }> = ({
   title,
   onLogout,
@@ -216,45 +228,30 @@ const HeaderBar: React.FC<{ title: string; onLogout: () => void }> = ({
   );
 };
 
+// Admin Dashboard
 const AdminDashboard: React.FC = () => {
   const [route, setRoute] = React.useState<string>(
-    window.location.hash || "#/dashboard"
+    window.location.hash || "#/dashboard",
   );
+
   const [facilityCount, setFacilityCount] = React.useState(0);
   const [eventCount, setEventCount] = React.useState(0);
   const [reportCount, setReportCount] = React.useState(0);
-  const [notificationCount, setNotificationCount] = React.useState(0); // added
+  const [notificationCount, setNotificationCount] = React.useState(0);
 
+  // Logout
   const logout = React.useCallback(() => {
     localStorage.removeItem(ADMIN_SESSION_KEY);
     window.location.hash = "#/login";
   }, []);
 
+  // Session check
   React.useEffect(() => {
     const session = localStorage.getItem(ADMIN_SESSION_KEY);
     if (!session) logout();
   }, [logout]);
 
-  React.useEffect(() => {
-    let timer: NodeJS.Timeout;
-
-    const resetTimer = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        alert("Logged out due to inactivity.");
-        logout();
-      }, 2 * 60 * 1000);
-    };
-
-    resetTimer();
-    const events = ["mousemove", "keydown", "click", "scroll", "touchstart"];
-    events.forEach((e) => window.addEventListener(e, resetTimer));
-    return () => {
-      clearTimeout(timer);
-      events.forEach((e) => window.removeEventListener(e, resetTimer));
-    };
-  }, [logout]);
-
+  // Hash routing
   React.useEffect(() => {
     if (!window.location.hash) window.location.hash = "#/dashboard";
     const onHashChange = () => setRoute(window.location.hash || "#/dashboard");
@@ -262,21 +259,29 @@ const AdminDashboard: React.FC = () => {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
+  // Firestore real-time counts
   React.useEffect(() => {
-    const fetchCounts = async () => {
-      const facilitiesSnapshot = await getDocs(collection(db, "facilities"));
-      const eventsSnapshot = await getDocs(collection(db, "Events"));
-      const notificationsSnapshot = await getDocs(
-        collection(db, "Notifications")
-      );
-      const reportsSnapshot = await getDocs(collection(db, "reports"));
+    const unsubFacilities = onSnapshot(collection(db, "facilities"), (snap) =>
+      setFacilityCount(snap.size),
+    );
+    const unsubEvents = onSnapshot(collection(db, "Events"), (snap) =>
+      setEventCount(snap.size),
+    );
+    const unsubNotifications = onSnapshot(
+      collection(db, "Notifications"),
+      (snap) => setNotificationCount(snap.size),
+    );
+    // ✅ Track all reports across admins using collectionGroup
+    const unsubReports = onSnapshot(collectionGroup(db, "reports"), (snap) =>
+      setReportCount(snap.size),
+    );
 
-      setFacilityCount(facilitiesSnapshot.size);
-      setEventCount(eventsSnapshot.size);
-      setNotificationCount(notificationsSnapshot.size); // added
-      setReportCount(reportsSnapshot.size);
+    return () => {
+      unsubFacilities();
+      unsubEvents();
+      unsubNotifications();
+      unsubReports();
     };
-    fetchCounts();
   }, []);
 
   const renderContent = () => {
@@ -320,33 +325,36 @@ const AdminDashboard: React.FC = () => {
         return (
           <>
             <HeaderBar title="Admin Dashboard" onLogout={logout} />
+
+            {/* Stats */}
             <section className="ad-stats">
               <Stat
                 title="Facilities"
-                value={facilityCount.toString()}
+                value={facilityCount}
                 icon={<IconBuilding />}
                 variant="indigo"
               />
               <Stat
                 title="Events"
-                value={eventCount.toString()}
+                value={eventCount}
                 icon={<IconCalendar />}
                 variant="blue"
               />
               <Stat
                 title="Reports"
-                value={reportCount.toString()}
+                value={reportCount}
                 icon={<IconReport />}
                 variant="amber"
               />
               <Stat
                 title="Notifications"
-                value={notificationCount.toString()}
+                value={notificationCount}
                 icon={<IconNotification />}
-                variant="indigo"
+                variant="emerald"
               />
             </section>
 
+            {/* Overview Donut */}
             <section className="ad-section">
               <h2 className="ad-section-title">Overview</h2>
               <div
@@ -364,14 +372,14 @@ const AdminDashboard: React.FC = () => {
                     reportCount,
                     notificationCount,
                   ]}
-                  colors={["#4f46e5", "#2563eb", "#f59e0b", "#8b5cf6"]}
+                  colors={["#4f46e5", "#2563eb", "#f59e0b", "#10b981"]}
                   size={220}
                   centerText={{
                     title: String(
                       facilityCount +
                         eventCount +
                         reportCount +
-                        notificationCount
+                        notificationCount,
                     ),
                     subtitle: "Total Items",
                   }}
@@ -432,7 +440,7 @@ const AdminDashboard: React.FC = () => {
                       style={{
                         width: 12,
                         height: 12,
-                        background: "#8b5cf6",
+                        background: "#10b981",
                         borderRadius: 3,
                       }}
                     />
@@ -447,6 +455,7 @@ const AdminDashboard: React.FC = () => {
               </div>
             </section>
 
+            {/* Quick Actions */}
             <section className="ad-section">
               <h2 className="ad-section-title">Quick Actions</h2>
               <div className="ad-qa-grid">
@@ -465,13 +474,6 @@ const AdminDashboard: React.FC = () => {
                   variant="blue"
                 />
                 <QuickAction
-                  title="List of Facilities"
-                  desc="View all campus facilities"
-                  icon={<IconBuilding stroke="#fff" />}
-                  href="#/facilities"
-                  variant="violet"
-                />
-                <QuickAction
                   title="View Reports"
                   desc="Check feedback and issues"
                   icon={<IconReport stroke="#fff" />}
@@ -485,18 +487,6 @@ const AdminDashboard: React.FC = () => {
                   href="#/add-notification"
                   variant="violet"
                 />
-              </div>
-            </section>
-
-            <section className="ad-section">
-              <h2 className="ad-section-title">Recent Activities</h2>
-              <div className="ad-activity">
-                <div className="ad-activity-item">
-                  Create event "Foundation day" - 10:29am
-                </div>
-                <div className="ad-activity-item">
-                  Create account "superuser01" - 9:08am
-                </div>
               </div>
             </section>
           </>
