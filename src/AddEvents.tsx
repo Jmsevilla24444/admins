@@ -1,4 +1,3 @@
-// src/components/AddEvents.tsx
 import React, { useEffect, useState } from "react";
 import "./AdminDashboard.css";
 import { IconUpload, IconEdit, IconTrash, IconSearch } from "./icons";
@@ -11,6 +10,8 @@ import {
   doc,
   updateDoc,
   serverTimestamp,
+  query,
+  orderBy,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 
@@ -35,7 +36,9 @@ const AddEvents: React.FC = () => {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<EventItem | null>(null);
   const [editEvent, setEditEvent] = useState<EventItem | null>(null);
-  const [query, setQuery] = useState("");
+  const [queryText, setQueryText] = useState("");
+
+  const [modalMessage, setModalMessage] = useState(""); // Success modal
 
   // Pick image
   const onPick: React.ChangeEventHandler<HTMLInputElement> = (e) => {
@@ -45,7 +48,7 @@ const AddEvents: React.FC = () => {
     setPreview(URL.createObjectURL(file));
   };
 
-  // FIXED IMAGE UPLOAD (NO STUCK PROMISE)
+  // Upload image
   const uploadImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const filename = `events/${Date.now()}-${file.name}`;
@@ -55,9 +58,7 @@ const AddEvents: React.FC = () => {
       uploadTask.on(
         "state_changed",
         () => {},
-        (error) => {
-          reject(error);
-        },
+        (error) => reject(error),
         async () => {
           try {
             const url = await getDownloadURL(uploadTask.snapshot.ref);
@@ -70,6 +71,7 @@ const AddEvents: React.FC = () => {
     });
   };
 
+  // Format date/time
   const formatDate = (value: string) => {
     const d = new Date(value);
     return d.toLocaleDateString("en-US", {
@@ -86,31 +88,51 @@ const AddEvents: React.FC = () => {
     return `${hour}:${m.toString().padStart(2, "0")} ${ampm}`;
   };
 
-  // Fetch events
-  const fetchEvents = async () => {
+  // Fetch all approved events from "Events" collection
+  const fetchAllEvents = async () => {
     try {
-      const snapshot = await getDocs(collection(db, "Events"));
+      const q = query(collection(db, "Events"), orderBy("date", "asc"));
+      const snapshot = await getDocs(q);
       const list: EventItem[] = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...(doc.data() as Omit<EventItem, "id">),
       }));
       setEvents(list);
     } catch (err) {
-      console.error(err);
+      console.error("FETCH ALL EVENTS ERROR:", err);
     }
   };
 
   useEffect(() => {
-    fetchEvents();
+    fetchAllEvents();
   }, []);
 
-  // Add event (FIXED)
+  // Validate date/time (cannot be past)
+  const isValidDateTime = () => {
+    if (!date || !time) return false;
+    const now = new Date();
+    const selected = new Date(`${date}T${time}`);
+    return selected >= now;
+  };
+
+  // ===== MODAL HANDLER =====
+  const showModal = (message: string) => {
+    setModalMessage(message);
+    setTimeout(() => setModalMessage(""), 2000); // hide after 2s
+  };
+
+  // Add event (goes to EventRequests for Super Admin approval)
   const onSubmit: React.FormEventHandler = async (e) => {
     e.preventDefault();
     if (saving) return;
 
     if (!title || !description || !date || !time || !imageFile) {
-      alert("Please fill in all fields.");
+      showModal("Please fill in all fields.");
+      return;
+    }
+
+    if (!isValidDateTime()) {
+      showModal("Event date and time cannot be in the past.");
       return;
     }
 
@@ -119,27 +141,17 @@ const AddEvents: React.FC = () => {
     try {
       const imageUrl = await uploadImage(imageFile);
 
-      const docRef = await addDoc(collection(db, "Events"), {
+      await addDoc(collection(db, "EventRequests"), {
         title,
         description,
         date: formatDate(date),
         time: formatTime(time),
         image: imageUrl,
+        status: "pending",
         createdAt: serverTimestamp(),
       });
 
-      setEvents((prev) => [
-        ...prev,
-        {
-          id: docRef.id,
-          title,
-          description,
-          date: formatDate(date),
-          time: formatTime(time),
-          image: imageUrl,
-        },
-      ]);
-
+      // Reset form
       setTitle("");
       setDescription("");
       setDate("");
@@ -147,16 +159,16 @@ const AddEvents: React.FC = () => {
       setImageFile(null);
       setPreview(null);
 
-      alert("Event created successfully!");
+      showModal("Event submitted for Super Admin approval!");
     } catch (err) {
       console.error("ADD EVENT ERROR:", err);
-      alert("Failed to create event.");
+      showModal("Failed to create event.");
     } finally {
       setSaving(false);
     }
   };
 
-  // Delete event
+  // Delete event (from "Events" collection)
   const handleDelete = async () => {
     if (!deleteConfirm) return;
     try {
@@ -165,13 +177,18 @@ const AddEvents: React.FC = () => {
       setDeleteConfirm(null);
     } catch (err) {
       console.error(err);
-      alert("Failed to delete event.");
+      showModal("Failed to delete event.");
     }
   };
 
-  // Save edit
+  // Save edit (edit existing events)
   const handleSaveEdit = async () => {
     if (!editEvent) return;
+    if (!isValidDateTime()) {
+      showModal("Event date and time cannot be in the past.");
+      return;
+    }
+
     try {
       const refDoc = doc(db, "Events", editEvent.id);
       await updateDoc(refDoc, {
@@ -186,12 +203,13 @@ const AddEvents: React.FC = () => {
       setEditEvent(null);
     } catch (err) {
       console.error(err);
-      alert("Failed to update event.");
+      showModal("Failed to update event.");
     }
   };
 
+  // Filter events
   const filteredEvents = events.filter((e) =>
-    e.title.toLowerCase().includes(query.toLowerCase()),
+    e.title.toLowerCase().includes(queryText.toLowerCase()),
   );
 
   return (
@@ -207,6 +225,7 @@ const AddEvents: React.FC = () => {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
+
             <label className="ad-label">Description</label>
             <textarea
               className="ad-input"
@@ -215,13 +234,16 @@ const AddEvents: React.FC = () => {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+
             <label className="ad-label">Date</label>
             <input
               type="date"
               className="ad-input"
               value={date}
+              min={new Date().toISOString().split("T")[0]}
               onChange={(e) => setDate(e.target.value)}
             />
+
             <label className="ad-label">Time</label>
             <input
               type="time"
@@ -298,14 +320,15 @@ const AddEvents: React.FC = () => {
           <input
             className="ad-search-input"
             placeholder="Search Events"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={queryText}
+            onChange={(e) => setQueryText(e.target.value)}
           />
         </div>
 
         <table className="ad-table">
           <thead>
             <tr>
+              <th>Image</th>
               <th>Title</th>
               <th>Date</th>
               <th>Time</th>
@@ -316,6 +339,22 @@ const AddEvents: React.FC = () => {
           <tbody>
             {filteredEvents.map((e) => (
               <tr key={e.id}>
+                <td>
+                  {e.image ? (
+                    <img
+                      src={e.image}
+                      alt={e.title}
+                      style={{
+                        width: 80,
+                        height: 60,
+                        objectFit: "cover",
+                        borderRadius: 4,
+                      }}
+                    />
+                  ) : (
+                    <span>No Image</span>
+                  )}
+                </td>
                 <td>{e.title}</td>
                 <td>{e.date}</td>
                 <td>{e.time}</td>
@@ -357,6 +396,7 @@ const AddEvents: React.FC = () => {
             <input
               className="ad-input"
               type="date"
+              min={new Date().toISOString().split("T")[0]}
               value={editEvent.date}
               onChange={(e) =>
                 setEditEvent({ ...editEvent, date: e.target.value })
@@ -412,6 +452,37 @@ const AddEvents: React.FC = () => {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== SUCCESS MODAL ===== */}
+      {modalMessage && (
+        <div
+          className="ad-modal-overlay"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              padding: "20px 40px",
+              borderRadius: 8,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+              fontWeight: "bold",
+            }}
+          >
+            {modalMessage}
           </div>
         </div>
       )}

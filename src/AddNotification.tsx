@@ -21,22 +21,29 @@ interface NotificationItem {
 }
 
 const AddNotification: React.FC = () => {
-  // ===== YOUR EXISTING STATES (UNCHANGED) =====
+  // ===== STATES =====
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // ===== ADDED STATES =====
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [query, setQuery] = useState("");
   const [editItem, setEditItem] = useState<NotificationItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<NotificationItem | null>(
-    null
+    null,
   );
 
-  // ===== FETCH NOTIFICATIONS =====
+  const [modalMessage, setModalMessage] = useState(""); // Modal for messages
+
+  // ===== MODAL HANDLER =====
+  const showModal = (message: string) => {
+    setModalMessage(message);
+    setTimeout(() => setModalMessage(""), 2000); // hide after 2s
+  };
+
+  // ===== FETCH APPROVED NOTIFICATIONS =====
   const fetchNotifications = async () => {
     try {
       const snap = await getDocs(collection(db, "Notifications"));
@@ -54,54 +61,43 @@ const AddNotification: React.FC = () => {
     fetchNotifications();
   }, []);
 
-  // ===== YOUR EXISTING ADD LOGIC (UNCHANGED) =====
+  // ===== ADD NOTIFICATION (send to Super Admin) =====
   const onSubmit: React.FormEventHandler = async (e) => {
     e.preventDefault();
 
     if (!title || !description || !date || !time) {
-      alert("Please fill in all fields.");
+      showModal("Please fill in all fields.");
       return;
     }
 
     const selectedDateTime = new Date(`${date}T${time}`);
     if (selectedDateTime < new Date()) {
-      alert("You cannot select a past date or time.");
+      showModal("You cannot select a past date or time.");
       return;
     }
 
     setSaving(true);
     try {
-      const ref = await addDoc(collection(db, "Notifications"), {
+      // Add to NotificationRequests for Super Admin approval
+      await addDoc(collection(db, "NotificationRequests"), {
         title,
         message: description,
         date,
         time,
+        status: "pending",
         createdAt: serverTimestamp(),
       });
 
-      setNotifications((prev) => [
-        ...prev,
-        {
-          id: ref.id,
-          title,
-          message: description,
-          date,
-          time,
-        },
-      ]);
-
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification(title, { body: description });
-      }
-
+      // Reset form
       setTitle("");
       setDescription("");
       setDate("");
       setTime("");
-      alert("Notification created successfully!");
+
+      showModal("Notification submitted for Super Admin approval!");
     } catch (error) {
       console.error(error);
-      alert("Failed to create notification.");
+      showModal("Failed to create notification.");
     } finally {
       setSaving(false);
     }
@@ -116,6 +112,7 @@ const AddNotification: React.FC = () => {
       setDeleteConfirm(null);
     } catch (err) {
       console.error(err);
+      showModal("Failed to delete notification.");
     }
   };
 
@@ -130,18 +127,19 @@ const AddNotification: React.FC = () => {
         time: editItem.time,
       });
       setNotifications((prev) =>
-        prev.map((n) => (n.id === editItem.id ? editItem : n))
+        prev.map((n) => (n.id === editItem.id ? editItem : n)),
       );
       setEditItem(null);
     } catch (err) {
       console.error(err);
+      showModal("Failed to update notification.");
     }
   };
 
   const filtered = notifications.filter(
     (n) =>
       n.title.toLowerCase().includes(query.toLowerCase()) ||
-      n.message.toLowerCase().includes(query.toLowerCase())
+      n.message.toLowerCase().includes(query.toLowerCase()),
   );
 
   return (
@@ -193,6 +191,10 @@ const AddNotification: React.FC = () => {
           </button>
         </div>
       </form>
+
+      <p className="ad-footnote">
+        This notification will be reviewed by the Super Admin before sending.
+      </p>
 
       {/* TABLE */}
       <div
@@ -319,6 +321,37 @@ const AddNotification: React.FC = () => {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== SUCCESS MODAL ===== */}
+      {modalMessage && (
+        <div
+          className="ad-modal-overlay"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              padding: "20px 40px",
+              borderRadius: 8,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+              fontWeight: "bold",
+            }}
+          >
+            {modalMessage}
           </div>
         </div>
       )}
