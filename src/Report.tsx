@@ -37,6 +37,15 @@ const Report: React.FC = () => {
   const [reports, setReports] = useState<ReportType[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<ReportType | null>(null);
 
+  // NEW: Message modal state
+  const [messageModal, setMessageModal] = useState<{
+    open: boolean;
+    message: string;
+  }>({
+    open: false,
+    message: "",
+  });
+
   // Image picker
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -80,9 +89,13 @@ const Report: React.FC = () => {
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!title.trim() || !desc.trim()) {
-      alert("Please enter title and description.");
+      setMessageModal({
+        open: true,
+        message: "Please enter title and description.",
+      });
       return;
     }
+
     setSaving(true);
     try {
       let imageUrl: string | null = null;
@@ -106,10 +119,17 @@ const Report: React.FC = () => {
       setDesc("");
       setImageFile(null);
       setPreview(null);
-      alert("Report sent successfully!");
+
+      setMessageModal({
+        open: true,
+        message: "Report sent successfully!",
+      });
     } catch (err) {
       console.error("Failed to send report:", err);
-      alert("Failed to send report. Check console for details.");
+      setMessageModal({
+        open: true,
+        message: "Failed to send report. Check console for details.",
+      });
     } finally {
       setSaving(false);
     }
@@ -123,7 +143,10 @@ const Report: React.FC = () => {
       setDeleteConfirm(null);
     } catch (err) {
       console.error("Failed to delete report:", err);
-      alert("Failed to delete report.");
+      setMessageModal({
+        open: true,
+        message: "Failed to delete report.",
+      });
     }
   };
 
@@ -150,6 +173,7 @@ const Report: React.FC = () => {
               onChange={(e) => setTitle(e.target.value)}
               required
             />
+
             <label className="ad-label">Description</label>
             <textarea
               className="ad-input ad-textarea"
@@ -274,6 +298,32 @@ const Report: React.FC = () => {
                 onClick={handleDelete}
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Message Modal (REPLACED ALERTS) */}
+      {messageModal.open && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <div style={{ background: "#fff", borderRadius: 12, width: 400 }}>
+            <div style={{ padding: 16 }}>{messageModal.message}</div>
+            <div className="ad-form-actions" style={{ padding: 16 }}>
+              <button
+                className="ad-btn ad-btn-primary"
+                onClick={() => setMessageModal({ open: false, message: "" })}
+              >
+                OK
               </button>
             </div>
           </div>

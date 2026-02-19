@@ -1,20 +1,55 @@
-import React from "react";
+import React, { useState } from "react";
 import "./AdminDashboard.css";
 import { IconUpload } from "./icons";
+import { db } from "./service/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const AddFacilities: React.FC = () => {
-  const [name, setName] = React.useState("");
-  const [type, setType] = React.useState("");
-  const [image, setImage] = React.useState<string | null>(null);
+  const [name, setName] = useState<string>("");
+  const [type, setType] = useState<string>("");
+  const [image, setImage] = useState<string | null>(null); // base64
+  const [preview, setPreview] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const onPick: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+  // Convert file to base64
+  const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) setImage(URL.createObjectURL(file));
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImage(reader.result as string);
+      setPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
-  const onSubmit: React.FormEventHandler = (e) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert("Facility added (demo)");
+    if (!name || !type) return alert("Please fill all fields!");
+
+    setLoading(true);
+    try {
+      await addDoc(collection(db, "incomingFacilities"), {
+        name,
+        type,
+        image: image || null,
+        submittedBy: "Admin",
+        submittedAt: serverTimestamp(),
+        approved: false,
+      });
+
+      alert("Facility added and sent to Super Admin!");
+      setName("");
+      setType("");
+      setImage(null);
+      setPreview(null);
+    } catch (err: any) {
+      console.error("Error adding facility:", err);
+      alert(`Failed to add facility: ${err.message || err}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -22,29 +57,21 @@ const AddFacilities: React.FC = () => {
       <form className="ad-form" onSubmit={onSubmit}>
         <div className="ad-form-grid">
           <div className="ad-form-left">
-            <label htmlFor="fac-name" className="ad-label">
-              Facility name
-            </label>
+            <label className="ad-label">Facility Name</label>
             <input
-              id="fac-name"
               className="ad-input"
               placeholder="Enter name"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
 
-            <label htmlFor="fac-type" className="ad-label">
-              Type
-            </label>
+            <label className="ad-label">Type</label>
             <select
-              id="fac-type"
               className="ad-input"
               value={type}
               onChange={(e) => setType(e.target.value)}
             >
-              <option value="" disabled>
-                Select Type
-              </option>
+              <option value="">Select Type</option>
               <option>Gate</option>
               <option>Office</option>
               <option>Room</option>
@@ -56,9 +83,9 @@ const AddFacilities: React.FC = () => {
           <div className="ad-form-right">
             <div className="ad-upload-row">
               <div className="ad-upload">
-                {image ? (
+                {preview ? (
                   <img
-                    src={image}
+                    src={preview}
                     alt="facility"
                     className="ad-upload-preview"
                   />
@@ -80,21 +107,17 @@ const AddFacilities: React.FC = () => {
         </div>
 
         <div className="ad-form-actions">
-          <button type="submit" className="ad-btn ad-btn-primary">
-            Add
-          </button>
           <button
-            type="button"
-            className="ad-btn"
-            onClick={() => (window.location.hash = "#/facilities")}
+            type="submit"
+            className="ad-btn ad-btn-primary"
+            disabled={loading}
           >
-            Cancel
+            {loading ? "Adding..." : "Add"}
           </button>
         </div>
       </form>
-
       <p className="ad-footnote">
-        This added Facility will be reviewed by the Super Admin before
+        This added facility will be reviewed by the Super Admin before
         activation.
       </p>
     </div>
