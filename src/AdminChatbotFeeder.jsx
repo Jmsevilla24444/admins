@@ -61,6 +61,27 @@ function isPresetCategory(value) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+const pillBase = {
+  padding: "6px 14px",
+  borderRadius: 999,
+  border: "1.5px solid #d1d5db",
+  background: "#fff",
+  color: "#374151",
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: "pointer",
+  textTransform: "capitalize",
+  transition: "all 0.15s",
+  lineHeight: 1.4,
+};
+
+const pillActive = {
+  ...pillBase,
+  background: "#6366f1",
+  borderColor: "#6366f1",
+  color: "#fff",
+};
+
 const CategoryPills = ({ selected, onChange }) => {
   const choices = [...CATEGORY_PRESETS, "custom"];
   return (
@@ -70,8 +91,7 @@ const CategoryPills = ({ selected, onChange }) => {
           key={c}
           type="button"
           onClick={() => onChange(c)}
-          className={`ad-chip${selected === c ? " active" : ""}`}
-          style={{ textTransform: "capitalize" }}
+          style={selected === c ? pillActive : pillBase}
         >
           {c}
         </button>
@@ -82,14 +102,14 @@ const CategoryPills = ({ selected, onChange }) => {
 
 const LangPills = ({ selected, onChange }) => (
   <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-    {["en", "tl"].map((lang) => (
+    {[{ value: "en", label: "English" }, { value: "tl", label: "Tagalog" }].map(({ value, label }) => (
       <button
-        key={lang}
+        key={value}
         type="button"
-        onClick={() => onChange(lang)}
-        className={`ad-chip${selected === lang ? " active" : ""}`}
+        onClick={() => onChange(value)}
+        style={selected === value ? pillActive : pillBase}
       >
-        {lang === "en" ? "English" : "Tagalog"}
+        {label}
       </button>
     ))}
   </div>

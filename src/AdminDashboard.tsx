@@ -77,7 +77,7 @@ const Sidebar: React.FC<{ route: string }> = ({ route }) => {
           <span className="ad-nav-ico">
             <IconGlobe size={20} stroke="#eaf2ff" />
           </span>
-          <span>Chatbot KB</span>
+          <span>Chatbot Feeder</span>
         </a>
       </nav>
     </aside>
@@ -503,7 +503,7 @@ const AdminDashboard: React.FC = () => {
                   variant="violet"
                 />
                 <QuickAction
-                  title="Chatbot KB"
+                  title="Chatbot Feeder"
                   desc="Add & edit chatbot knowledge base"
                   icon={<IconGlobe stroke="#fff" />}
                   href="#/chatbot"
