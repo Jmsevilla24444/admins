@@ -172,7 +172,7 @@
 /* Stats */
 .ad-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 220px));
+  grid-template-columns: repeat(7, minmax(0, 220px));
   gap: 16px;
   margin: 18px 0 10px;
 }
@@ -208,6 +208,13 @@
     rgba(245, 158, 11, 0.06)
   );
 }
+.ad-stat.emerald {
+  background: linear-gradient(
+    180deg,
+    rgba(11, 245, 62, 0.12),
+    rgba(11, 245, 62, 0.06)
+  );
+}
 .ad-stat:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
@@ -230,6 +237,10 @@
 }
 .ad-stat-ico.amber {
   background: linear-gradient(180deg, #fbbf24, #f59e0b);
+  color: #fff;
+}
+.ad-stat-ico.emerald {
+  background: linear-gradient(180deg, #24fb76, #10b981);
   color: #fff;
 }
 .ad-stat-title {

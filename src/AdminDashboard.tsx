@@ -5,6 +5,7 @@ import AddEvents from "./AddEvents";
 import Report from "./Report";
 import AddFacilities from "./AddFacilities";
 import AddNotification from "./AddNotification";
+import AdminChatbotFeeder from "./AdminChatbotFeeder";
 import {
   IconHome,
   IconBuilding,
@@ -70,6 +71,13 @@ const Sidebar: React.FC<{ route: string }> = ({ route }) => {
             <IconReport size={20} stroke="#eaf2ff" />
           </span>
           <span>Report</span>
+        </a>
+
+        <a className={isActive("#/chatbot")} href="#/chatbot">
+          <span className="ad-nav-ico">
+            <IconGlobe size={20} stroke="#eaf2ff" />
+          </span>
+          <span>Chatbot KB</span>
         </a>
       </nav>
     </aside>
@@ -321,6 +329,13 @@ const AdminDashboard: React.FC = () => {
             <AddNotification />
           </>
         );
+      case "#/chatbot":
+        return (
+          <>
+            <HeaderBar title="Chatbot Knowledge Base" onLogout={logout} />
+            <AdminChatbotFeeder />
+          </>
+        );
       default:
         return (
           <>
@@ -486,6 +501,13 @@ const AdminDashboard: React.FC = () => {
                   icon={<IconNotification stroke="#fff" />}
                   href="#/add-notification"
                   variant="violet"
+                />
+                <QuickAction
+                  title="Chatbot KB"
+                  desc="Add & edit chatbot knowledge base"
+                  icon={<IconGlobe stroke="#fff" />}
+                  href="#/chatbot"
+                  variant="indigo"
                 />
               </div>
             </section>
