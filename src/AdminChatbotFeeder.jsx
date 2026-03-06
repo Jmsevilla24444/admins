@@ -2,12 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   addDoc,
   collection,
+  deleteDoc,
+  doc,
   getDocs,
   orderBy,
   query,
   serverTimestamp,
   updateDoc,
-  doc,
 } from "firebase/firestore";
 import { db } from "./service/firebase";
 
@@ -61,27 +62,6 @@ function isPresetCategory(value) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-const pillBase = {
-  padding: "6px 14px",
-  borderRadius: 999,
-  border: "1.5px solid #d1d5db",
-  background: "#fff",
-  color: "#374151",
-  fontSize: 12,
-  fontWeight: 600,
-  cursor: "pointer",
-  textTransform: "capitalize",
-  transition: "all 0.15s",
-  lineHeight: 1.4,
-};
-
-const pillActive = {
-  ...pillBase,
-  background: "#6366f1",
-  borderColor: "#6366f1",
-  color: "#fff",
-};
-
 const CategoryPills = ({ selected, onChange }) => {
   const choices = [...CATEGORY_PRESETS, "custom"];
   return (
@@ -91,7 +71,8 @@ const CategoryPills = ({ selected, onChange }) => {
           key={c}
           type="button"
           onClick={() => onChange(c)}
-          style={selected === c ? pillActive : pillBase}
+          className={`ad-chip${selected === c ? " active" : ""}`}
+          style={{ textTransform: "capitalize" }}
         >
           {c}
         </button>
@@ -102,14 +83,14 @@ const CategoryPills = ({ selected, onChange }) => {
 
 const LangPills = ({ selected, onChange }) => (
   <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-    {[{ value: "en", label: "English" }, { value: "tl", label: "Tagalog" }].map(({ value, label }) => (
+    {["en", "tl"].map((lang) => (
       <button
-        key={value}
+        key={lang}
         type="button"
-        onClick={() => onChange(value)}
-        style={selected === value ? pillActive : pillBase}
+        onClick={() => onChange(lang)}
+        className={`ad-chip${selected === lang ? " active" : ""}`}
       >
-        {label}
+        {lang === "en" ? "English" : "Tagalog"}
       </button>
     ))}
   </div>
@@ -117,7 +98,7 @@ const LangPills = ({ selected, onChange }) => (
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const AdminChatbotFeeder = () => {
+const SuperAdminChatbotFeeder = () => {
   const [tab, setTab] = useState("add"); // "add" | "manage"
 
   // ── Add form state ──
@@ -147,6 +128,9 @@ const AdminChatbotFeeder = () => {
   const [editCategoryCustom, setEditCategoryCustom] = useState("");
   const [editLanguage, setEditLanguage] = useState("en");
   const [editPriorityText, setEditPriorityText] = useState("0");
+
+  // ── Delete confirm ──
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   // ── Modal message ──
   const [modalMessage, setModalMessage] = useState("");
@@ -278,7 +262,7 @@ const AdminChatbotFeeder = () => {
     }
   }
 
-  // ── Toggle Active (Admin can enable/disable too) ──
+  // ── Toggle Active ──
   async function toggleActive(id, newValue) {
     setLoading(true);
     try {
@@ -290,6 +274,21 @@ const AdminChatbotFeeder = () => {
       showModal(newValue ? "Entry enabled." : "Entry disabled.");
     } catch (e) {
       setError(e?.message || "Failed to update status.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── Delete (SuperAdmin only) ──
+  async function handleDelete(id) {
+    setLoading(true);
+    try {
+      await deleteDoc(doc(db, KB_COLLECTION, id));
+      setConfirmDeleteId(null);
+      await refresh();
+      showModal("Entry deleted.");
+    } catch (e) {
+      setError(e?.message || "Failed to delete entry.");
     } finally {
       setLoading(false);
     }
@@ -322,18 +321,7 @@ const AdminChatbotFeeder = () => {
 
   return (
     <section className="ad-section">
-      <h2 className="ad-section-title">Chatbot Knowledge Base</h2>
-
-      {/* Info notice */}
-      <div
-        style={{
-          background: "#eff6ff", border: "1px solid #bfdbfe",
-          borderRadius: 8, padding: "10px 16px", color: "#1d4ed8",
-          marginBottom: 16, fontSize: 13,
-        }}
-      >
-        ℹ️ You can add and edit knowledge base entries. Only the <strong>SuperAdmin</strong> can permanently delete entries.
-      </div>
+      <h2 className="ad-section-title">Chatbot </h2>
 
       {/* Tab Switcher */}
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
@@ -343,6 +331,7 @@ const AdminChatbotFeeder = () => {
             type="button"
             className={`ad-btn${tab === t ? " ad-btn-primary" : ""}`}
             onClick={() => setTab(t)}
+            style={{ textTransform: "capitalize" }}
           >
             {t === "add" ? "➕ Add Entry" : `📋 Manage Entries (${items.length})`}
           </button>
@@ -435,7 +424,11 @@ const AdminChatbotFeeder = () => {
           </div>
 
           <div className="ad-form-actions" style={{ marginTop: 16 }}>
-            <button className="ad-btn ad-btn-primary" type="submit" disabled={loading}>
+            <button
+              className="ad-btn ad-btn-primary"
+              type="submit"
+              disabled={loading}
+            >
               {loading ? "Saving…" : "➕ Add Entry"}
             </button>
           </div>
@@ -488,7 +481,12 @@ const AdminChatbotFeeder = () => {
               Show disabled
             </label>
 
-            <button type="button" className="ad-btn" onClick={refresh} disabled={loading}>
+            <button
+              type="button"
+              className="ad-btn"
+              onClick={refresh}
+              disabled={loading}
+            >
               {loading ? "…" : "↻ Refresh"}
             </button>
           </div>
@@ -558,16 +556,16 @@ const AdminChatbotFeeder = () => {
                             {item.active ? "Disable" : "Enable"}
                           </button>
 
-                          {/* Delete is NOT available to Admin */}
-                          <span
-                            title="Contact SuperAdmin to delete entries"
-                            style={{
-                              fontSize: 11, color: "#9ca3af", marginLeft: 8,
-                              display: "inline-flex", alignItems: "center", cursor: "default",
-                            }}
+                          {/* Delete — SuperAdmin exclusive */}
+                          <button
+                            className="ad-btn danger"
+                            style={{ fontSize: 12, padding: "4px 10px", marginLeft: 4 }}
+                            onClick={() => setConfirmDeleteId(item.id)}
+                            disabled={loading}
+                            title="Delete permanently (SuperAdmin only)"
                           >
-                            🔒 Delete (SA only)
-                          </span>
+                            🗑️ Delete
+                          </button>
                         </td>
                       </tr>
 
@@ -631,6 +629,28 @@ const AdminChatbotFeeder = () => {
         </div>
       )}
 
+      {/* ── Delete Confirm Modal ── */}
+      {confirmDeleteId && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+          <div style={{ background: "#fff", borderRadius: 12, width: 420, padding: 24, boxShadow: "0 8px 32px rgba(0,0,0,.2)" }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Delete Entry?</div>
+            <div style={{ color: "#6b7280", marginBottom: 20, fontSize: 14 }}>
+              This will permanently remove the entry from the chatbot . This action cannot be undone.
+            </div>
+            <div className="ad-form-actions">
+              <button className="ad-btn" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+              <button
+                className="ad-btn danger"
+                onClick={() => handleDelete(confirmDeleteId)}
+                disabled={loading}
+              >
+                {loading ? "Deleting…" : "Delete Permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Success Modal ── */}
       {modalMessage && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
@@ -643,4 +663,4 @@ const AdminChatbotFeeder = () => {
   );
 };
 
-export default AdminChatbotFeeder;
+export default SuperAdminChatbotFeeder;

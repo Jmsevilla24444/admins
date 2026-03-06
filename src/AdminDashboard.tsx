@@ -332,7 +332,7 @@ const AdminDashboard: React.FC = () => {
       case "#/chatbot":
         return (
           <>
-            <HeaderBar title="Chatbot Knowledge Base" onLogout={logout} />
+            <HeaderBar title="Chatbot " onLogout={logout} />
             <AdminChatbotFeeder />
           </>
         );
